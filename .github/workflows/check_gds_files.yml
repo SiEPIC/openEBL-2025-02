@@ -20,7 +20,7 @@ jobs:
       - name: Get list of changed files
         id: changed_files
         run: |
-          FILES=$(git diff --name-only --diff-filter=ACM origin/${{ github.base_ref }}...HEAD)
+          FILES=$(git diff --name-only --diff-filter=ACM origin/${{ github.base_ref }}...HEAD | tr '\n' ' ')
           echo "files=$FILES" >> $GITHUB_ENV
 
       - name: Debug changed files
