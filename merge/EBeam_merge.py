@@ -147,14 +147,14 @@ for f in [f for f in files_in if '.oas' in f.lower() or '.gds' in f.lower()]:
     layout2 = pya.Layout()
     layout2.read(f)
 
-    if 'ebeam' in basefilename.lower():
-        course = 'edXphot1x'
-    elif 'elec413' in basefilename.lower():
+    if 'elec413' in basefilename.lower():
         course = 'ELEC413'
     elif 'openebl' in basefilename.lower():
         course = 'openEBL'
     elif 'siepic_passives' in basefilename.lower():
         course = 'SiEPIC_Passives'
+    elif 'ebeam' in basefilename.lower():
+        course = 'edXphot1x'
     else:
         course = 'openEBL'
 
