@@ -20,10 +20,23 @@ jobs:
       - name: Get list of changed files
         id: changed_files
         run: |
+          echo "Fetching changed files..."
           FILES=$(git diff --name-only --diff-filter=ACM origin/${{ github.base_ref }}...HEAD)
-          echo "files<<EOF" >> $GITHUB_ENV
-          echo "$FILES" >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
+          
+          if [[ -z "$FILES" ]]; then
+            echo "No changed files detected."
+            exit 0  # Exits early if no files were changed
+          fi
+          
+          echo "Files detected:"
+          echo "$FILES"
+
+          # Store it properly in environment variable
+          {
+            echo "files<<EOF"
+            echo "$FILES"
+            echo "EOF"
+          } >> $GITHUB_ENV
 
       - name: Debug changed files
         run: |
