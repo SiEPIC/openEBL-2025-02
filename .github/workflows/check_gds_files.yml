@@ -20,17 +20,31 @@ jobs:
       - name: Get list of changed files
         id: changed_files
         run: |
+          echo "Fetching changed files..."
           FILES=$(git diff --name-only --diff-filter=ACM origin/${{ github.base_ref }}...HEAD)
-          echo "files=$FILES" >> $GITHUB_ENV
+          
+          if [[ -z "$FILES" ]]; then
+            echo "No changed files detected."
+            exit 0  # Exits early if no files were changed
+          fi
+          
+          echo "Files detected:"
+          echo "$FILES"
+
+          # Store it properly in environment variable
+          {
+            echo "files<<EOF"
+            echo "$FILES"
+            echo "EOF"
+          } >> $GITHUB_ENV
 
       - name: Debug changed files
         run: |
-          echo "Changed files: ${{ env.files }}"
-
+          echo "Changed files:"
+          echo "${{ env.files }}"
 
       - name: Debug File Paths
         run: |
-          echo "Files detected: ${{ env.files }}"
           mapfile -t file_array <<< "${{ env.files }}"
           for file in "${file_array[@]}"; do
             echo "Checking file: '$file'"
@@ -39,15 +53,11 @@ jobs:
         
       - name: Check GDS and OAS file locations and names
         run: |
-          changed_files="${{ env.files }}"
-      
-          # Convert newline-separated string into an array
-          mapfile -t file_array <<< "$changed_files"
+          mapfile -t file_array <<< "${{ env.files }}"
       
           for file in "${file_array[@]}"; do
             trimmed_file=$(echo "$file" | tr -d '[:space:]') # Trim spaces/newlines
-            abs_path=$(realpath "$trimmed_file")
-      
+            
             if [[ "$trimmed_file" == *.gds || "$trimmed_file" == *.oas ]]; then
               if [[ "$trimmed_file" != submissions/* ]]; then
                 echo "Error: File '$trimmed_file' is not in the 'submissions' folder."
