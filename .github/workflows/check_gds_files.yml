@@ -10,42 +10,61 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch all branches
+        run: git fetch --all
 
       - name: Get list of changed files
         id: changed_files
         run: |
-          # Get the list of files changed in the PR
-          # echo "::set-output name=files::$(git diff --name-only origin/main HEAD)"
-
-          # get added/modified py files
-          if [ "${{ github.event_name }}" == "push" ]; then
-            echo "::set-output name=files::$(git diff --name-only --diff-filter=ACM ${{ github.event.before }} ${{ github.sha }})"
-          else
-            echo "::set-output name=files::$(git diff --name-only --diff-filter=ACM FETCH_HEAD)"
+          echo "Fetching changed files..."
+          FILES=$(git diff --name-only --diff-filter=ACM origin/${{ github.base_ref }}...HEAD)
+          
+          if [[ -z "$FILES" ]]; then
+            echo "No changed files detected."
+            exit 0  # Exits early if no files were changed
           fi
+          
+          echo "Files detected:"
+          echo "$FILES"
 
+          # Store it properly in environment variable
+          {
+            echo "files<<EOF"
+            echo "$FILES"
+            echo "EOF"
+          } >> $GITHUB_ENV
+
+      - name: Debug changed files
+        run: |
+          echo "Changed files:"
+          echo "${{ env.files }}"
+
+      - name: Debug File Paths
+        run: |
+          mapfile -t file_array <<< "${{ env.files }}"
+          for file in "${file_array[@]}"; do
+            echo "Checking file: '$file'"
+          done
+        shell: bash
+        
       - name: Check GDS and OAS file locations and names
         run: |
-          # Get the list of changed files from the previous step
-          changed_files="${{ steps.changed_files.outputs.files }}"
-
-          # Split files into an array
-          IFS=$'\n' read -r -d '' -a file_array <<< "$changed_files"
-
-          # Loop over the files
+          mapfile -t file_array <<< "${{ env.files }}"
+      
           for file in "${file_array[@]}"; do
-            # Check if the file ends with .gds or .oas
-            if [[ "$file" == *.gds || "$file" == *.oas ]]; then
-              # Check if the file is in the submissions folder
-              if [[ "$file" != submissions/* ]]; then
-                echo "Error: File '$file' is not in the 'submissions' folder."
+            trimmed_file=$(echo "$file" | tr -d '[:space:]') # Trim spaces/newlines
+            
+            if [[ "$trimmed_file" == *.gds || "$trimmed_file" == *.oas ]]; then
+              if [[ "$trimmed_file" != submissions/* ]]; then
+                echo "Error: File '$trimmed_file' is not in the 'submissions' folder."
                 exit 1
               fi
-
-              # Check if the file contains any spaces in the name
-              if [[ "$file" == *" "* ]]; then
-                echo "Error: File '$file' contains spaces in the filename."
+              if [[ "$trimmed_file" == *" "* ]]; then
+                echo "Error: File '$trimmed_file' contains spaces in the filename."
                 exit 1
               fi
             fi
