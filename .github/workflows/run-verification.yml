@@ -1,4 +1,4 @@
-name: Run Layout Verification
+name: Run Functional Verification "V"
 
 on:
   workflow_dispatch:
@@ -163,6 +163,8 @@ jobs:
             echo "Errors detected: $files_with_errors"
             exit 1
           fi
+
+            
 # this can only run in pull_request_target, not pull_request
 #      - name: Checkout
 #        uses: actions/checkout@v4
