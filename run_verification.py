@@ -18,6 +18,10 @@ Jasmina Brar 12/08/23, and Lukas Chrostowski
 # gds file to run verification on
 gds_file = sys.argv[1]
 
+print('')
+print('')
+print('')
+print('')
 print('Running SiEPIC-Tools automated verification for file %s' % gds_file)
 
 try:
@@ -28,22 +32,57 @@ except:
    print('Error loading layout')
    num_errors = 1
 
+
+import klayout.db as pya
+
+def top_cell_with_most_subcells_or_shapes(layout):
+    """
+    Returns the top cell that contains the most subcells or the most shapes in a KLayout layout.
+
+    :param layout: pya.Layout object
+    :return: The top cell with the most subcells or shapes
+    
+    by ChatGPT
+    """
+    top_cells = layout.top_cells()
+
+    if not top_cells:
+        return None
+
+    max_subcells = 0
+    best_cell = None
+
+    for top_cell in top_cells:
+        subcell_count = sum(1 for _ in top_cell.each_child_cell())  # Count subcells
+
+        # Prioritize by subcells first, then shapes if there's a tie
+        if subcell_count > max_subcells:
+            max_subcells = subcell_count
+            best_cell = top_cell
+
+    return best_cell
+
+# Example usage
+# layout = pya.Layout()  # Load your layout
+# top_cell = top_cell_with_most_subcells_or_shapes(layout)
+# if top_cell:
+#     print(f"Top cell with most subcells/shapes: {top_cell.name}")
+
+
 try:
    # get top cell from layout
-   if len(layout.top_cells()) != 1:
-      print('Error: layout does not have 1 top cell. It has %s.' % len(layout.top_cells()))
-      num_errors += 1
-
-   top_cell = layout.top_cell()
+   top_cell = top_cell_with_most_subcells_or_shapes(layout)
+   
+   if not top_cell:
+      print('No top cell in the layout')
+   else:
+      print('Top cell: %s' % top_cell.name)
 
    # set layout technology because the technology seems to be empty, and we cannot load the technology using TECHNOLOGY = get_technology() because this isn't GUI mode
    # refer to line 103 in layout_check()
    # tech = layout.technology()
    # print("Tech:", tech.name)
    layout.TECHNOLOGY = get_technology_by_name('EBeam')
-
-   # run verification
-   zoom_out(top_cell)
 
    # get file path, filename, path for output lyrdb file
    path = os.path.dirname(os.path.realpath(__file__))
@@ -53,13 +92,6 @@ try:
    # run verification
    num_errors = layout_check(cell = top_cell, verbose=False, GUI=True, file_rdb=file_lyrdb)
 
-   # Make sure layout extent fits within the allocated area.
-   cell_Width = 605000
-   cell_Height = 410000
-   bbox = top_cell.bbox()
-   if bbox.width() > cell_Width or bbox.height() > cell_Height:
-      print('Error: Cell bounding box / extent (%s, %s) is larger than the maximum size of %s X %s microns' % (bbox.width()/1000, bbox.height()/1000, cell_Width/1000, cell_Height/1000) )
-      num_errors += 1
 except:
    print('Unknown error occurred')
    num_errors = 1

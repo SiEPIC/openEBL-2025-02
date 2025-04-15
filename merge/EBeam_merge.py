@@ -28,8 +28,8 @@ br_cutout_x = 7484000
 br_cutout_y = 898000
 br_cutout2_x = 7855000
 br_cutout2_y = 5063000
-tr_cutout_x = 7037000
-tr_cutout_y = 8494000
+tr_cutout_x = [6080e3, 6408e3]
+tr_cutout_y = [4549e3, 3148e3]
 
 filename_out = 'EBeam'
 layers_keep = ['1/0','1/10', '68/0', '81/0', '10/0', '99/0', '26/0', '31/0', '32/0', '33/0', '998/0']
@@ -91,15 +91,15 @@ log('SiEPIC-Tools %s, layout merge, running KLayout 0.%s.%s ' % (SiEPIC.__versio
 current_time = now.strftime("%Y-%m-%d, %H:%M:%S local time")
 log("Date: %s" % current_time)
 
-# Load all the GDS/OAS files from the "submissions" folder:
-path2 = os.path.abspath(os.path.join(path,"../submissions"))
+# Load all the GDS/OAS files from the "framework" folder:
 files_in = []
+path2 = os.path.abspath(os.path.join(path,"../framework"))
 _, _, files = next(os.walk(path2), (None, None, []))
 for f in sorted(files):
     files_in.append(os.path.join(path2,f))
 
-# Load all the GDS/OAS files from the "framework" folder:
-path2 = os.path.abspath(os.path.join(path,"../framework"))
+# Load all the GDS/OAS files from the "submissions" folder:
+path2 = os.path.abspath(os.path.join(path,"../submissions"))
 _, _, files = next(os.walk(path2), (None, None, []))
 for f in sorted(files):
     files_in.append(os.path.join(path2,f))
@@ -125,6 +125,9 @@ top_cell.insert(CellInstArray(cell_date.cell_index(), t))
 # Origins for the layouts
 x,y = 0,cell_Height+cell_Gap_Height
 
+# Keep track of the width of the cells, for each column
+max_cell_Width = 0
+
 import subprocess
 import pandas as pd
 for f in [f for f in files_in if '.oas' in f.lower() or '.gds' in f.lower()]:
@@ -147,14 +150,14 @@ for f in [f for f in files_in if '.oas' in f.lower() or '.gds' in f.lower()]:
     layout2 = pya.Layout()
     layout2.read(f)
 
-    if 'ebeam' in basefilename.lower():
-        course = 'edXphot1x'
-    elif 'elec413' in basefilename.lower():
+    if 'elec413' in basefilename.lower():
         course = 'ELEC413'
     elif 'openebl' in basefilename.lower():
         course = 'openEBL'
     elif 'siepic_passives' in basefilename.lower():
         course = 'SiEPIC_Passives'
+    elif 'ebeam' in basefilename.lower():
+        course = 'edXphot1x'
     else:
         course = 'openEBL'
 
@@ -215,8 +218,6 @@ for f in [f for f in files_in if '.oas' in f.lower() or '.gds' in f.lower()]:
                 
             # Create sub-cell using the filename under course cell
             subcell2 = layout.create_cell(os.path.basename(f)+"_"+filedate)
-            t = Trans(Trans.R0, x,y)
-            cell_course.insert(CellInstArray(subcell2.cell_index(), t))
             
             # Clear extra layers
             layers_keep2 = [layer_SEM] if course in layer_SEM_allow else []
@@ -258,21 +259,62 @@ for f in [f for f in files_in if '.oas' in f.lower() or '.gds' in f.lower()]:
             t = Trans(Trans.R0, -bbox.left,-bbox.bottom)
             subcell2.insert(CellInstArray(subcell.cell_index(), t))
         
-            # clip cells
+            # clip / crop cells
             cell2 = layout2.clip(cell.cell_index(), pya.Box(bbox.left,bbox.bottom,bbox.left+cell_Width,bbox.bottom+cell_Height))
             bbox2 = layout2.cell(cell2).bbox()
             if bbox != bbox2:
                 log('  - WARNING: Cell was clipped to maximum size of %s X %s' % (cell_Width, cell_Height) )
                 log('  - clipped bounding box: %s' % bbox2.to_s() )
 
-            # copy
+            # Copy the cropped version
             subcell.copy_tree(layout2.cell(cell2))  
+
+            # Check if this cell would overlap with other Floorplans, then move if necessary
+
+            # Get Floorplan regions for the entire chip so far
+            Layer_FP = layout.find_layer(99,0)  # or use "layer"
+            iter1 = pya.RecursiveShapeIterator(layout, top_cell, Layer_FP )
+            r1 = pya.Region()
+            while not iter1.at_end():
+                # print("   - %s" % iter1.trans())
+                if not iter1.shape().is_text(): 
+                    r1.insert(iter1.shape().polygon.transformed(iter1.trans())) 
+                iter1.next()        
+            r1.merge()
+
+            # Track the maximum width of the cells, for each column
+            x_offset = 0
+            max_cell_Width = max(max_cell_Width, subcell2.bbox().right + x_offset)
             
+            def next_position(x, y, cell_Gap_Height, cell_Gap_Width, chip_Height, cell_Height, cell_Width):
+                # Measure the height of the cell that was added, and move up
+                y += cell_Gap_Height
+                if y + subcell2.bbox().top > chip_Height2:
+                    y = 0
+                    x += cell_Width + cell_Gap_Width
+                    cell_Width = 0
+                return x, y, cell_Width
+
+            x,y, max_cell_Width = next_position(x, y, cell_Gap_Height, cell_Gap_Width, chip_Height2, cell_Height, max_cell_Width)
+            
+            interacting = True
+            while interacting:
+                r2 = pya.Region(pya.Box(x+x_offset,y, x+x_offset+bbox2.width(),y+bbox2.height()))
+                interacting = r2.interacting(r1)
+                if interacting:
+                    # print("   - Overlapping Floorplan: %s" % r2.interacting(r1))
+                    x,y, max_cell_Width = next_position(x, y, cell_Gap_Height, cell_Gap_Width, chip_Height2, cell_Height, max_cell_Width)
+
+
+            # Insert cell instance in the chip
+            t = Trans(Trans.R0, x+x_offset,y)
+            cell_course.insert(CellInstArray(subcell2.cell_index(), t))            
             log('  - Placed at position: %s, %s' % (x,y) )
                 
             # Measure the height of the cell that was added, and move up
-            y += max (cell_Height, subcell.bbox().height()) + cell_Gap_Height
-            # move right and bottom when we reach the top of the chip
+            y += subcell.bbox().height()
+            
+            '''
             if y + cell_Height > chip_Height1 and x == 0:
                 y = cell_Height + cell_Gap_Height
                 x += cell_Width + cell_Gap_Width
@@ -280,16 +322,18 @@ for f in [f for f in files_in if '.oas' in f.lower() or '.gds' in f.lower()]:
                 y = cell_Height + cell_Gap_Height
                 x += cell_Width + cell_Gap_Width
             # check top right cutout for PCM
-            if x + cell_Width > tr_cutout_x and y + cell_Height > tr_cutout_y:
-                # go to the next column
-                y = cell_Height + cell_Gap_Height    
-                x += cell_Width + cell_Gap_Width
+            for i in range(len(tr_cutout_x)):
+                if x + cell_Width > tr_cutout_x[i] and y + cell_Height > tr_cutout_y[i]:
+                    # go to the next column
+                    y = cell_Height + cell_Gap_Height    
+                    x += cell_Width + cell_Gap_Width
             # Check bottom right cutout for PCM
             if x + cell_Width > br_cutout_x and y < br_cutout_y:
                 y = br_cutout_y
             # Check bottom right cutout #2 for PCM
             if x + cell_Width > br_cutout2_x and y < br_cutout2_y:
                 y = br_cutout2_y
+            '''
 
 
 # move layers
