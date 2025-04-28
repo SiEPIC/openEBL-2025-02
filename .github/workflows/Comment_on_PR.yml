@@ -1,3 +1,5 @@
+name: Comment on PR
+
 on: pull_request_target
 
 jobs:

@@ -5,6 +5,7 @@
 - More details about <a href="https://siepic.ca/openEBL/">openEBL</a>.
 - **Submission deadline: February 15, 2025.**
 - The previous submission was in [October 2024](https://github.com/SiEPIC/openEBL-2024-10). You can look at previous designs for inspiration.
+- The next fabrication run is in [May 2025](https://github.com/SiEPIC/openEBL-2025-05).
 
 # Fabrication process: Passive Silicon
 ## Technical summary:
@@ -82,5 +83,28 @@ The verification and merging is performed using GitHub actions. The repository i
 
 Click on the following link to download the EBeam.oas merged layout file:
 <!-- start-link -->
-https://github.com/SiEPIC/openEBL-2025-02/actions/runs/13109620475/artifacts/2525570548
+https://github.com/SiEPIC/openEBL-2025-02/actions/runs/13386222983/artifacts/2607505188
 <!-- end-link -->
+
+## Measurements
+
+https://qdot-nexus.phas.ubc.ca:25683/s/qioaZK3zJJQc44M
+
+## SEM images of the fabricated designs
+
+Scanning electron microscope images of some of the devices from this fabrication run were taken, and are available in the "SEM images" folder, and shown here:
+
+
+![SEM image – ring resonators](./SEM%20images/CR_038.jpg)
+![SEM image – ring resonators](./SEM%20images/CR_040.jpg)
+![SEM image – 1x2 splitter](./SEM%20images/CR_041.jpg)
+![SEM image – subwavelength grating waveguides](./SEM%20images/CR_042.jpg)
+
+![SEM image – Bragg grating](./SEM%20images/CR_056.jpg)
+![SEM image – Bragg grating contra directional coupler](./SEM%20images/CR_055.jpg)
+
+![SEM image – 1D photonic crystal resonator](./SEM%20images/CR_058.jpg)
+
+![SEM image – lithgraphy test structure](./SEM%20images/CR_049.jpg)
+![SEM image – lithgraphy test structure](./SEM%20images/CR_050.jpg)
+
